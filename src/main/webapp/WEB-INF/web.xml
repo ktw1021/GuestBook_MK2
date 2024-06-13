@@ -18,5 +18,14 @@
   		<servlet-name>GuestBookServlet</servlet-name>
   		<url-pattern>/gb</url-pattern>
   	</servlet-mapping>
+  	
+    <filter>
+  	<filter-name>EncodingFilter</filter-name>
+  	<filter-class>himedia.filter.EncodingFilter</filter-class>
+  </filter>
+  <filter-mapping>
+  	<filter-name>EncodingFilter</filter-name>
+  	<url-pattern>/*</url-pattern>
+  </filter-mapping>
   
 </web-app>
