@@ -4,6 +4,9 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
+import himedia.dao.GuestBookDao;
+import himedia.dao.GuestBookDaoOracleImpl;
+import himedia.dao.GuestBookVo;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -13,23 +16,17 @@ import jakarta.servlet.http.HttpServletResponse;
 @WebServlet("/guestbook")
 public class GuestBookServlet extends HttpServlet {
 
-	private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 1L;
     private GuestBookDao dao;
 
     @Override
     public void init() throws ServletException {
-        dao = new GuestBookDao();
+        dao = new GuestBookDaoOracleImpl();
     }
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        
-    	GuestBookDao dao = new GuestBookDao();
-    	List<String[]> entries = dao.getList();
-    	
-    	request.setAttribute("entries", entries);
-    	
-    	String action = request.getParameter("action");
+        String action = request.getParameter("a");
         if (action == null) action = "list";
 
         switch (action) {
@@ -50,7 +47,7 @@ public class GuestBookServlet extends HttpServlet {
 
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        String action = request.getParameter("action");
+        String action = request.getParameter("a");
 
         switch (action) {
             case "add":
@@ -66,7 +63,7 @@ public class GuestBookServlet extends HttpServlet {
     }
 
     private void listEntries(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        List<String[]> entries = dao.getList();
+        List<GuestBookVo> entries = dao.getList();
         request.setAttribute("entries", entries);
         request.getRequestDispatcher("/index.jsp").forward(request, response);
     }
@@ -80,7 +77,7 @@ public class GuestBookServlet extends HttpServlet {
             dao.insert(name, password, content);
         }
 
-        response.sendRedirect("guestbook?action=list");
+        response.sendRedirect("guestbook?a=list");
     }
 
     private void deleteEntry(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
@@ -88,54 +85,56 @@ public class GuestBookServlet extends HttpServlet {
         String password = request.getParameter("password");
 
         if (noString == null || password == null) {
-            response.sendRedirect("guestbook?action=list&message=invalid_request");
+            response.sendRedirect("guestbook?a=list&message=invalid_request");
             return;
         }
 
-        int no = Integer.parseInt(noString);
-
         try {
+            int no = Integer.parseInt(noString);
             boolean isDeleted = dao.deleteWithPasswordCheck(no, password);
-            
+
             if (isDeleted) {
-                response.sendRedirect("guestbook?action=list&message=deleted");
+                response.sendRedirect("guestbook?a=list&message=deleted");
             } else {
-                response.sendRedirect("guestbook?action=list&message=wrong_password");
+                response.sendRedirect("guestbook?a=list&message=wrong_password");
             }
         } catch (NumberFormatException e) {
-            response.sendRedirect("guestbook?action=list&message=invalid_request");
-        } 
-    }
-
-    private void showEditForm(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        int no = Integer.parseInt(request.getParameter("no"));
-        Map<String, String> entry = dao.getEntry(no);
-        request.setAttribute("entry", entry);
-        
-        // 응답이 커밋되지 않은 경우에만 forward를 시도
-        if (!response.isCommitted()) {
-            request.getRequestDispatcher("/edit.jsp").forward(request, response);
-        } else {
-            // 응답이 이미 커밋된 경우에 대한 처리
-            // 예를 들어, 로깅하거나 다른 처리를 수행할 수 있음
-            // 또는 클라이언트에게 에러 메시지를 전달할 수도 있음
-            response.getWriter().println("응답이 이미 커밋된 상태입니다.");
+            response.sendRedirect("guestbook?a=list&message=invalid_request");
         }
     }
 
+    private void showEditForm(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        try {
+            int no = Integer.parseInt(request.getParameter("no"));
+            Map<String, String> entry = dao.getEntry(no);
+            request.setAttribute("entry", entry);
+
+            if (!response.isCommitted()) {
+                request.getRequestDispatcher("/edit.jsp").forward(request, response);
+            } else {
+                response.getWriter().println("응답이 이미 커밋된 상태입니다.");
+            }
+        } catch (NumberFormatException e) {
+            response.sendRedirect("guestbook?a=list&message=invalid_request");
+        }
+    }
 
     private void updateEntry(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        int no = Integer.parseInt(request.getParameter("no"));
-        String name = request.getParameter("name");
-        String password = request.getParameter("password");
-        String content = request.getParameter("content");
+        try {
+            int no = Integer.parseInt(request.getParameter("no"));
+            String name = request.getParameter("name");
+            String password = request.getParameter("password");
+            String content = request.getParameter("content");
 
-        boolean isUpdated = dao.updateEntry(no, name, password, content);
+            boolean isUpdated = dao.updateEntry(no, name, password, content);
 
-        if (isUpdated) {
-            response.getWriter().println("<script>alert('수정되었습니다.'); location.href='guestbook?action=list';</script>");
-        } else {
-            response.getWriter().println("<script>alert('비밀번호가 일치하지 않습니다.'); history.back();</script>");
+            if (isUpdated) {
+                response.getWriter().println("<script>alert('수정되었습니다.'); location.href='guestbook?a=list';</script>");
+            } else {
+                response.getWriter().println("<script>alert('비밀번호가 일치하지 않습니다.'); history.back();</script>");
+            }
+        } catch (NumberFormatException e) {
+            response.sendRedirect("guestbook?a=list&message=invalid_request");
         }
     }
 }

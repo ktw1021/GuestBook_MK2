@@ -1,4 +1,4 @@
-package himedia;
+package himedia.dao;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -11,7 +11,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class GuestBookDao {
+public class GuestBookDaoOracleImpl implements GuestBookDao {
 
     private static final String DB_URL = "jdbc:oracle:thin:@localhost:1521:xe";
     private static final String DB_USER = "himedia";
@@ -29,20 +29,23 @@ public class GuestBookDao {
         return DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
     }
     
-    public List<String[]> getList() {
-        List<String[]> dataList = new ArrayList<>();
+    public List<GuestBookVo> getList() {
+    	
+        List<GuestBookVo> dataList = new ArrayList<>();
         String sql = "SELECT no, name, TO_CHAR(reg_date, 'YYYY-MM-DD HH24:MI') AS reg_date, content FROM GuestBook";
         
         try (Connection conn = getConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
-                String[] entry = new String[4];
-                entry[0] = rs.getString("no");
-                entry[1] = rs.getString("name");
-                entry[2] = rs.getString("reg_date");
-                entry[3] = rs.getString("content");
-                dataList.add(entry);
+                
+                Long no = rs.getLong("no");
+                String name = rs.getString("name");
+                String reg_date = rs.getString("reg_date");
+                String content = rs.getString("content");
+                
+                GuestBookVo vo = new GuestBookVo(no, name, reg_date, content);
+                dataList.add(vo);
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -50,33 +53,38 @@ public class GuestBookDao {
         return dataList;
     }
     
-    public void insert(String name, String password, String content) {
+    public boolean insert(String name, String password, String content) {
         String sql = "INSERT INTO GuestBook (name, password, content) VALUES (?, ?, ?)";
+        
+        int insertedCount = 0;
         
         try (Connection conn = getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, name);
             pstmt.setString(2, password);
             pstmt.setString(3, content);
-            pstmt.executeUpdate();
+            insertedCount = pstmt.executeUpdate();
+            
         } catch (SQLException e) {
             e.printStackTrace();
         }
+        
+        return 1 == insertedCount;
     }
-    
-    public boolean deleteWithPasswordCheck(int no, String password) {
+    @Override
+    public boolean deleteWithPasswordCheck(long no, String password) {
         String selectSql = "SELECT password FROM GuestBook WHERE no = ?";
         String deleteSql = "DELETE FROM GuestBook WHERE no = ?";
         
         try (Connection conn = getConnection();
              PreparedStatement selectStmt = conn.prepareStatement(selectSql);
              PreparedStatement deleteStmt = conn.prepareStatement(deleteSql)) {
-            selectStmt.setInt(1, no);
+            selectStmt.setLong(1, no);
             try (ResultSet rs = selectStmt.executeQuery()) {
                 if (rs.next()) {
                     String dbPassword = rs.getString("password");
                     if (dbPassword.equals(password)) {
-                        deleteStmt.setInt(1, no);
+                        deleteStmt.setLong(1, no);
                         int rowsAffected = deleteStmt.executeUpdate();
                         return rowsAffected > 0;
                     }
@@ -125,4 +133,5 @@ public class GuestBookDao {
         }
         return false;
     }
+
 }
